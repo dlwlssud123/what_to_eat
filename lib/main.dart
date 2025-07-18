@@ -1,134 +1,157 @@
 import 'package:flutter/material.dart';
+import 'api_service.dart';
+import 'meal.dart';
 
 void main() {
-  runApp(const WhatToEatApp());
+  runApp(const MyApp());
 }
 
-class WhatToEatApp extends StatelessWidget {
-  const WhatToEatApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'What to Eat',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+      title: 'What To Eat',
+      home: const HomePage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage();
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final Map<String, List<String>> foodMap = {
-    '한식': ['비빔밥', '김치찌개', '불고기'],
-    '중식': ['짜장면', '짬뽕', '탕수육'],
-    '일식': ['초밥', '라멘', '가츠동'],
-    '양식': ['파스타', '스테이크', '피자'],
-  };
+class _HomePageState extends State<HomePage> {
+  Meal? _selectedMeal;
+  String? _lastSelectedCategory;
+  List<Meal> _favorites = []; // 🎯 즐겨찾기 리스트
+  bool _showFavorites = false;
 
-  String? recommendedFood;
-  bool showCategoryButtons = false;
-
-  void recommendRandomFood() {
-    final allFoods = foodMap.values.expand((list) => list).toList();
-    allFoods.shuffle();
+  void _getRandomMeal() async {
+    final meal = await ApiService.fetchRandomMeal();
     setState(() {
-      recommendedFood = allFoods.first;
+      _selectedMeal = meal;
+      _lastSelectedCategory = null;
+      _showFavorites = false;
     });
   }
 
-  void recommendByCategory(String category) {
-    final foods = foodMap[category];
-    if (foods != null && foods.isNotEmpty) {
-      foods.shuffle();
-      setState(() {
-        recommendedFood = foods.first;
-      });
-    }
+  void _getMealByCategory(String category) async {
+    final meal = await ApiService.fetchMealByCategory(category);
+    setState(() {
+      _selectedMeal = meal;
+      _lastSelectedCategory = category;
+      _showFavorites = false;
+    });
+  }
+
+  void _toggleFavorite(Meal meal) {
+    setState(() {
+      if (_favorites.any((m) => m.id == meal.id)) {
+        _favorites.removeWhere((m) => m.id == meal.id);
+      } else {
+        _favorites.add(meal);
+      }
+    });
+  }
+
+  bool _isFavorite(Meal meal) {
+    return _favorites.any((m) => m.id == meal.id);
+  }
+
+  Widget _buildMealCard(Meal meal) {
+    return Card(
+      margin: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Image.network(
+            meal.imageUrl,
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              meal.name,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => _toggleFavorite(meal),
+            child: Text(_isFavorite(meal) ? '즐겨찾기 제거' : '즐겨찾기 추가'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final categories = {
+      'Seafood': '해산물',
+      'Beef': '소고기',
+      'Chicken': '닭고기',
+      'Dessert': '디저트',
+    };
+
     return Scaffold(
-      appBar: AppBar(title: const Text('오늘 뭐 먹지?'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      appBar: AppBar(
+        title: const Text('오늘 뭐 먹지?'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite),
+            onPressed: () {
+              setState(() {
+                _showFavorites = !_showFavorites;
+              });
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 랜덤 음식 추천 버튼
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: recommendRandomFood,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text('🍽️ 랜덤 음식 추천', style: TextStyle(fontSize: 20)),
+              onPressed: _getRandomMeal,
+              child: const Text('랜덤 음식 추천'),
             ),
             const SizedBox(height: 20),
-
-            // 카테고리 토글 버튼
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  showCategoryButtons = !showCategoryButtons;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                '📂 카테고리별 음식 추천',
-                style: TextStyle(fontSize: 18),
-              ),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: categories.entries.map((entry) {
+                return ElevatedButton(
+                  onPressed: () => _getMealByCategory(entry.key),
+                  child: Text(entry.value),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 20),
-
-            // 카테고리 버튼들 (2x2 Grid)
-            if (showCategoryButtons)
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                physics: const NeverScrollableScrollPhysics(),
-                children: foodMap.keys.map((category) {
-                  return ElevatedButton(
-                    onPressed: () => recommendByCategory(category),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orangeAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.all(12),
-                    ),
-                    child: Text(category, style: const TextStyle(fontSize: 18)),
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 30),
-
-            // 추천 결과 표시
-            if (recommendedFood != null)
-              Center(
-                child: Text(
-                  '🍽️ 추천 음식: $recommendedFood',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+            if (_showFavorites)
+              Column(
+                children: _favorites
+                    .map((meal) => _buildMealCard(meal))
+                    .toList(),
+              )
+            else if (_selectedMeal != null) ...[
+              _buildMealCard(_selectedMeal!),
+              if (_lastSelectedCategory != null)
+                ElevatedButton(
+                  onPressed: () => _getMealByCategory(_lastSelectedCategory!),
+                  child: Text('${categories[_lastSelectedCategory]} 다시 추천'),
                 ),
-              ),
+            ],
           ],
         ),
       ),
