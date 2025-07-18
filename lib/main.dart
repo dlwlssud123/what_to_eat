@@ -45,7 +45,12 @@ class _HomePageState extends State<HomePage> {
       margin: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Image.network(_selectedMeal!.imageUrl),
+          Image.network(
+            _selectedMeal!.imageUrl,
+            height: 200, // 또는 MediaQuery로 동적 조정
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
@@ -61,10 +66,10 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final categories = {
-      'Korean': '한식',
-      'Chinese': '중식',
-      'Japanese': '일식',
-      'French': '양식',
+      'Seafood': '해산물',
+      'Beef': '소고기',
+      'Chicken': '닭고기',
+      'Dessert': '디저트',
     };
 
     return Scaffold(
